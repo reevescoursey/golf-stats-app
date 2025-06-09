@@ -26,7 +26,7 @@ st.markdown(
 )
 
 # === LOAD DATA ===
-df = pd.read_csv("data\golf_stats.csv")
+df = pd.read_csv("golf_stats.csv")
 
 # === CLEANING ===
 df["Penalty"] = pd.to_numeric(df["Penalty"], errors="coerce").fillna(0)
