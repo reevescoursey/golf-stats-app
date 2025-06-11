@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import altair as alt
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="Golf Dashboard", page_icon="⛳", layout="wide")
@@ -34,6 +35,8 @@ df["Putts"] = pd.to_numeric(df["Putts"], errors="coerce")
 df["Scrambling"] = pd.to_numeric(df["Scrambling"], errors="coerce")
 df["RoundID"] = df["Date"] + " - " + df["Course"]
 
+
+
 # === CREATE TABS ===
 tab1, tab2 = st.tabs(["📊 All Rounds Summary", "📅 Individual Round Viewer"])
 
@@ -63,6 +66,17 @@ with tab1:
     col1.metric("9-hole Rounds", f"{'+' if avg_9hole_over_par >= 0 else ''}{avg_9hole_over_par:.0f}")
     col2.metric("18-hole Rounds", f"{'+' if avg_18hole_over_par >= 0 else ''}{avg_18hole_over_par:.0f}")
 
+    st.subheader("Hole Stats")
+    col1, col2, col3 = st.columns(3)
+    # Compute average score per hole type
+    average_par_three_score = df[df.Par == 3]['Score'].mean()
+    average_par_four_score = df[df.Par == 4]['Score'].mean()
+    average_par_five_score = df[df.Par == 5]['Score'].mean()
+
+    col1.metric("Average Score on Par 3 Holes", f"{average_par_three_score:.2f}")
+    col2.metric("Average Score on Par 4 Holes", f"{average_par_four_score:.2f}")
+    col3.metric("Average Score on Par 5 Holes", f"{average_par_five_score:.2f}")
+
     st.subheader("🧠 Playing Stats")
 
     # GIR %
@@ -71,22 +85,32 @@ with tab1:
     drive_counts_all = df["Drive"].value_counts(normalize=True)
     gir_location_counts_all = df["GIR"].value_counts(normalize=True)
 
+    # Scrambling %
     scramble_valid_all = df["Scrambling"].dropna()
     scramble_pct_all = (scramble_valid_all == 1).sum() / len(scramble_valid_all) if len(scramble_valid_all) > 0 else 0
 
-    penalties_by_round = df.groupby("RoundID")["Penalty"].mean()
-    avg_penalties_all = penalties_by_round.mean()
+    # Average penalties per round
+    # Calculate total penalties
+    total_penalties = df["Penalty"].sum()
 
-    col1, col2, col3 = st.columns(3)
+# Calculate total number of holes played
+    total_holes = len(df["Hole"])
+
+# Calculate average penalties per hole
+    penalties_per_hole = total_penalties / total_holes
+
+# Scale to 18 holes
+    penalties_per_eighteen = penalties_per_hole * 18
+
+
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("GIR %", f"{gir_pct_all:.0%}")
     col2.metric("Avg Putts", f"{avg_putts_all:.2f}")
     col3.metric("Scrambling %", f"{scramble_pct_all:.0%}")
-
-    col4, _ = st.columns(2)
-    col4.metric("Avg Penalties per Round", f"{avg_penalties_all:.2f}")
+    col4.metric("Avg Penalties per Round", f"{penalties_per_eighteen:.2f}")
 
     st.subheader("🏌️ Drive Direction Breakdown (All Rounds)")
-    st.bar_chart(drive_counts_all)
+    st.bar_chart(drive_counts_all, x_label="Drive Direction", y_label="Percentage")
 
     st.subheader("🎯 GIR Location Breakdown (All Rounds)")
     st.bar_chart(gir_location_counts_all)
@@ -109,19 +133,18 @@ with tab2:
     # Stats
     gir_pct = df_round["GIR"].map({"Y": 1, "R": 0, "L": 0, "F": 0, "S": 0}).mean()
     avg_putts = df_round["Putts"].mean()
+    total_putts = df_round["Putts"].sum()
     drive_counts = df_round["Drive"].value_counts(normalize=True)
     gir_location_counts = df_round["GIR"].value_counts(normalize=True)
-    scramble_valid = df_round["Scrambling"].dropna()
-    scramble_pct = (scramble_valid == 1).sum() / len(scramble_valid) if len(scramble_valid) > 0 else 0
-    avg_penalties = df_round["Penalty"].mean()
+    scramble = df_round["Scrambling"]
+    scramble_valid = scramble[scramble.isin([1, 0])]
+    scramble_pct = scramble_valid.sum() / len(scramble_valid) if len(scramble_valid) > 0 else 0
+    penalties = df_round["Penalty"].sum()
 
     col1, col2, col3 = st.columns(3)
     col1.metric("GIR %", f"{gir_pct:.0%}")
-    col2.metric("Avg Putts", f"{avg_putts:.2f}")
-    col3.metric("Scrambling %", f"{scramble_pct:.0%}")
-
-    col4, _ = st.columns(2)
-    col4.metric("Avg Penalties", f"{avg_penalties:.2f}")
+    col2.metric(f"Avg Putts (Total: {total_putts:.0f})", f"{avg_putts:.2f}")
+    col3.metric("Penalties", f"{penalties:.2f}")
 
     # Charts
     st.subheader("🏌️ Drive Direction Breakdown")
